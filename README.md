@@ -1,4 +1,4 @@
-# Brainer
+![image alt](image/Brainer_logo.png)
 
 > [!IMPORTANT]
 > The project is still a work in progress.
