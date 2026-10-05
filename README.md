@@ -8,7 +8,8 @@ This project does not use game assets, you neeed a legal Rayman Raving Rabbids T
 # Features
 
 # Credits
-* [NWiiRecomp](https://github.com/BlackLineInteractive/NWiiRecomp) for transform the PowerPC code to C++
+* [Dolrecomp](https://github.com/ExpansionPak/DolRecomp) for transform the PowerPC code to C++
+* [ModernGekko](https://github.com/ExpansionPak/ModernGekko) to run it
 
 No AI used, 100% Human code and assets
 
