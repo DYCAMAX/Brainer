@@ -1,0 +1,77 @@
+name: Build
+
+on:
+  # Pull requests were not covered, so nothing checked a change before it
+  # reached a branch other people vendor. A missing include that stopped `core`
+  # compiling got in that way.
+  pull_request:
+  push:
+    # moderngekko-vendor is the branch ModernGekko actually vendors, so it needs
+    # watching as much as main does.
+    branches: [main, moderngekko-vendor]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  nogui-macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install dependencies
+        run: brew install ninja
+      - name: Configure
+        run: cmake -B build -GNinja -DCMAKE_BUILD_TYPE=Release -DENABLE_QT=OFF -DENABLE_NOGUI=ON -DUSE_MGBA=OFF -DUSE_RETRO_ACHIEVEMENTS=OFF
+      - name: Build
+        run: ninja -C build core
+
+  nogui-linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build build-essential pkg-config \
+            libevdev-dev libudev-dev libgtk-3-dev libsystemd-dev \
+            libbluetooth-dev libasound2-dev libpulse-dev libgl1-mesa-dev \
+            libxrandr-dev libxi-dev
+      - name: Configure
+        run: cmake -B build -GNinja -DCMAKE_BUILD_TYPE=Release -DENABLE_QT=OFF -DENABLE_NOGUI=ON -DUSE_MGBA=OFF -DUSE_RETRO_ACHIEVEMENTS=OFF
+      - name: Build
+        run: ninja -C build core
+      # The unit tests exist but nothing ran them. `tests` is EXCLUDE_FROM_ALL,
+      # so it has to be asked for by name.
+      - name: Build unit tests
+        run: ninja -C build tests
+      - name: Test
+        working-directory: build
+        run: ctest --output-on-failure --timeout 300
+
+  # Windows was not built at all, which is how PCH flags being applied to C
+  # sources -- GXRuntime handed a C++ precompiled header, fatal error C1853 --
+  # reached the vendored branch.
+  nogui-windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install dependencies
+        run: choco install ninja --no-progress -y
+      - uses: ilammy/msvc-dev-cmd@v1
+      - name: Configure
+        run: cmake -B build -GNinja -DCMAKE_BUILD_TYPE=Release -DENABLE_QT=OFF -DENABLE_NOGUI=ON -DUSE_MGBA=OFF -DUSE_RETRO_ACHIEVEMENTS=OFF
+      - name: Build
+        run: ninja -C build core
+      - name: Build unit tests
+        run: ninja -C build tests
+      - name: Test
+        working-directory: build
+        run: ctest --output-on-failure --timeout 300
