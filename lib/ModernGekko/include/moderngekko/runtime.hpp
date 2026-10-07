@@ -1,0 +1,148 @@
+#pragma once
+
+#include "moderngekko/game.hpp"
+#include "moderngekko/module_abi.h"
+
+#include <filesystem>
+#include <memory>
+#include <optional>
+#include <string>
+#include <vector>
+
+namespace moderngekko
+{
+struct ModuleSource
+{
+  enum class Kind
+  {
+    None,
+    DynamicPath,
+    AttachedDescriptor,
+  };
+
+  static ModuleSource DynamicPath(std::filesystem::path path);
+  static ModuleSource AttachedDescriptor(const ModernGekkoModuleDesc* descriptor);
+
+  Kind kind = Kind::None;
+  std::filesystem::path path;
+  const ModernGekkoModuleDesc* descriptor = nullptr;
+};
+
+struct GraphicsSettings
+{
+  std::string backend;
+  std::optional<int> internal_resolution_scale;
+};
+
+struct AudioSettings
+{
+  std::string backend;
+  bool mute = false;
+};
+
+struct InputSettings
+{
+  bool background_input = false;
+};
+
+struct AutomationSettings
+{
+  std::filesystem::path directory;
+};
+
+enum class WindowSystem
+{
+  Default,
+  Wayland,
+  X11,
+};
+
+struct RuntimeConfig
+{
+  std::filesystem::path game_root;
+  std::filesystem::path user_directory;
+  ModuleSource module;
+  std::vector<std::filesystem::path> mod_directories;
+  GraphicsSettings graphics;
+  AudioSettings audio;
+  InputSettings input;
+  WindowSystem window_system = WindowSystem::Default;
+  bool headless = false;
+  bool fullscreen = false;
+  bool allow_interpreter = false;
+  bool show_fps_in_title = true;
+  std::optional<std::string> window_title;
+  // Boot straight into a savestate instead of from the title screen.
+  std::optional<std::filesystem::path> load_state_path;
+  AutomationSettings automation;
+};
+
+enum class RuntimeErrorCode
+{
+  AlreadyActive,
+  InvalidGame,
+  ModuleRequired,
+  ModuleRejected,
+  PlatformUnavailable,
+  InitializationFailed,
+  BootFailed,
+  InvalidState,
+};
+
+struct RuntimeError
+{
+  RuntimeErrorCode code = RuntimeErrorCode::InitializationFailed;
+  std::string message;
+};
+
+enum class RuntimeExitReason
+{
+  Stopped,
+  BootFailed,
+};
+
+struct RuntimeRunResult
+{
+  RuntimeExitReason reason = RuntimeExitReason::Stopped;
+  std::optional<RuntimeError> error;
+};
+
+class Runtime;
+
+struct RuntimeCreateResult
+{
+  std::unique_ptr<Runtime> runtime;
+  std::optional<RuntimeError> error;
+
+  explicit operator bool() const { return runtime != nullptr; }
+};
+
+class Runtime final
+{
+public:
+  static RuntimeCreateResult Create(RuntimeConfig config);
+
+  ~Runtime();
+  Runtime(const Runtime&) = delete;
+  Runtime& operator=(const Runtime&) = delete;
+  Runtime(Runtime&&) = delete;
+  Runtime& operator=(Runtime&&) = delete;
+
+  RuntimeRunResult Run();
+  void RequestStop();
+  std::optional<RuntimeError> Pause();
+  std::optional<RuntimeError> Resume();
+
+  const RuntimeConfig& GetConfig() const;
+  const GameMetadata& GetGameMetadata() const;
+  const std::string& GetWindowTitle() const;
+
+private:
+  struct Impl;
+  explicit Runtime(std::unique_ptr<Impl> impl);
+  void StopAutomation();
+  std::unique_ptr<Impl> m_impl;
+};
+}  // namespace moderngekko
+
+namespace ModernGekko = moderngekko;
